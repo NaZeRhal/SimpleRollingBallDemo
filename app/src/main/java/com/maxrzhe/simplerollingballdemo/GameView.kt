@@ -6,7 +6,6 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import android.util.AttributeSet
-import android.util.Log
 import android.view.View
 import androidx.annotation.Px
 import kotlinx.coroutines.CoroutineScope
@@ -19,6 +18,7 @@ class GameView @JvmOverloads constructor(
     defStyleAttr: Int = 0
 ) : View(context, attrs, defStyleAttr) {
 
+    private val mazeHandler: MazeHandler = MazeHandler()
     private lateinit var cells: Array<Array<Cell>>
     private lateinit var ball: Ball
 
@@ -69,7 +69,7 @@ class GameView @JvmOverloads constructor(
     }
 
     private fun initMaze() {
-        cells = MazeGenerator().createMaze(COLUMNS, ROWS)
+        cells = mazeHandler.createMaze(COLUMNS, ROWS)
     }
 
     private fun setupPaints() {
@@ -93,24 +93,75 @@ class GameView @JvmOverloads constructor(
             0f + ballRadius + wallStrokeWidth,
             0f + ballRadius + wallStrokeWidth,
             ballRadius,
-            ballSpeed
+            ballSpeed,
+            listOf()
         )
     }
 
     private fun updateBallCenter() {
         CoroutineScope(Dispatchers.Main).launch {
-            ball.centerX -= deltaX * ball.speed
+            ball.centerX += deltaX * ball.speed
             ball.centerY += deltaY * ball.speed
             with(ball) {
-                Log.i(
-                    MainActivity.TAG,
-                    "updateBallCenter: width=${width}/ centerX=${centerX}/ radius=${radius}"
-                )
-                if (centerX < 0 + radius + wallStrokeWidth / 2 || centerX > width - radius - hMargin * 2 - wallStrokeWidth / 2) {
-                    centerX += deltaX * ball.speed
-                }
-                if (centerY < 0 + radius + wallStrokeWidth / 2 || centerY > height - radius - vMargin * 2 - wallStrokeWidth / 2) {
-                    centerY -= deltaY * ball.speed
+                val copyCurrentCells = ArrayList(currentCells)
+                copyCurrentCells.forEach { cell ->
+                    if (centerX + radius < cell.left ||
+                        centerX - radius > cell.right ||
+                        centerY - radius > cell.bottom ||
+                        centerY + radius < cell.top
+
+                    ) {
+                        currentCells = currentCells - listOf(cell)
+                        return@forEach
+                    }
+                    if (centerX - radius - wallStrokeWidth / 2 < cell.left) {
+                        if (cell.leftWall) {
+                            centerX -= deltaX * ball.speed
+                        } else {
+                            if (cell.column > 0) {
+                                val neighbour = cells[cell.column - 1][cell.row]
+                                if (!currentCells.contains(neighbour)) {
+                                    currentCells = currentCells + listOf(neighbour)
+                                }
+                            }
+                        }
+                    }
+                    if (centerX + radius + wallStrokeWidth / 2 > cell.right) {
+                        if (cell.rightWall) {
+                            centerX -= deltaX * ball.speed
+                        } else {
+                            if (cell.column < COLUMNS - 1) {
+                                val neighbour = cells[cell.column + 1][cell.row]
+                                if (!currentCells.contains(neighbour)) {
+                                    currentCells = currentCells + listOf(neighbour)
+                                }
+                            }
+                        }
+                    }
+                    if (centerY - radius - wallStrokeWidth / 2 < cell.top) {
+                        if (cell.topWall) {
+                            centerY -= deltaY * ball.speed
+                        } else {
+                            if (cell.row > 0) {
+                                val neighbour = cells[cell.column][cell.row - 1]
+                                if (!currentCells.contains(neighbour)) {
+                                    currentCells = currentCells + listOf(neighbour)
+                                }
+                            }
+                        }
+                    }
+                    if (centerY + radius + wallStrokeWidth / 2 > cell.bottom) {
+                        if (cell.bottomWall) {
+                            centerY -= deltaY * ball.speed
+                        } else {
+                            if (cell.row < ROWS - 1) {
+                                val neighbour = cells[cell.column][cell.row + 1]
+                                if (!currentCells.contains(neighbour)) {
+                                    currentCells = currentCells + listOf(neighbour)
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -129,7 +180,29 @@ class GameView @JvmOverloads constructor(
         hMargin = (width - COLUMNS * cellSize) / 2
         vMargin = (height - ROWS * cellSize) / 2
         resolveTableSize()
+        resolveCellsCoords()
+        ball.currentCells = listOf(cells[0][0])
+    }
 
+    private fun resolveCellsCoords() {
+        for (x in 0 until COLUMNS) {
+            for (y in 0 until ROWS) {
+                val cell = cells[x][y]
+                cells[x][y] = Cell(
+                    column = cell.column,
+                    row = cell.row,
+                    left = x * cellSize,
+                    top = y * cellSize,
+                    right = (x + 1) * cellSize,
+                    bottom = (y + 1) * cellSize,
+                    topWall = cell.topWall,
+                    leftWall = cell.leftWall,
+                    rightWall = cell.rightWall,
+                    bottomWall = cell.bottomWall
+
+                )
+            }
+        }
     }
 
     private fun resolveTableSize() {
@@ -218,6 +291,6 @@ class GameView @JvmOverloads constructor(
         private const val DEFAULT_HORIZONTAL_MARGIN = 8
 
         private const val DEFAULT_BALL_RADIUS = 20
-        private const val DEFAULT_BALL_SPEED_COEFFICIENT = 5f
+        private const val DEFAULT_BALL_SPEED_COEFFICIENT = 2.5f
     }
 }

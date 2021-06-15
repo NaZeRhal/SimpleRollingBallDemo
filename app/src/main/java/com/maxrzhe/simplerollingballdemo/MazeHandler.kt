@@ -3,8 +3,7 @@ package com.maxrzhe.simplerollingballdemo
 import java.util.*
 import kotlin.random.Random
 
-class MazeGenerator {
-
+class MazeHandler {
 
     fun createMaze(columns: Int, rows: Int): Array<Array<Cell>> {
         var cells = arrayOf<Array<Cell>>()
@@ -34,6 +33,7 @@ class MazeGenerator {
 
         return cells
     }
+
 
     private fun removeWall(currentCell: Cell, nextCell: Cell) {
         if (currentCell.column == nextCell.column && currentCell.row == nextCell.row + 1) {

@@ -47,7 +47,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         if (event?.sensor?.type == Sensor.TYPE_ACCELEROMETER) {
             val deltaX = event.values[0]
             val deltaY = event.values[1]
-            gameView.deltaX = deltaX
+            gameView.deltaX = -deltaX
             gameView.deltaY = deltaY
         }
     }
